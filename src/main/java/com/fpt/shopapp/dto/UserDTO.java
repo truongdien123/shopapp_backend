@@ -2,6 +2,7 @@ package com.fpt.shopapp.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -19,6 +20,7 @@ public class UserDTO {
 
     @JsonProperty("phone_number")
     @NotBlank(message = "Phone number is required")
+    @Size(min = 10, max = 10)
     private String phoneNumber;
 
     private String address;

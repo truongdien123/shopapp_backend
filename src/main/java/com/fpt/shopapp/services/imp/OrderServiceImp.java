@@ -1,19 +1,24 @@
 package com.fpt.shopapp.services.imp;
 
+import com.fpt.shopapp.dto.CartItemDTO;
 import com.fpt.shopapp.dto.OrderDTO;
 import com.fpt.shopapp.exceptions.DataNotFoundException;
-import com.fpt.shopapp.model.Order;
-import com.fpt.shopapp.model.OrderStatus;
-import com.fpt.shopapp.model.User;
+import com.fpt.shopapp.model.*;
+import com.fpt.shopapp.repositories.OrderDetailRepository;
 import com.fpt.shopapp.repositories.OrderRepository;
+import com.fpt.shopapp.repositories.ProductRepository;
 import com.fpt.shopapp.repositories.UserRepository;
 import com.fpt.shopapp.responses.OrderResponse;
 import com.fpt.shopapp.services.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,9 +28,12 @@ public class OrderServiceImp implements OrderService {
 
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
+    private final ProductRepository productRepository;
+    private final OrderDetailRepository orderDetailRepository;
     private final ModelMapper modelMapper;
 
     @Override
+    @Transactional
     public OrderResponse createOrder(OrderDTO orderDTO) {
         // tìm xem user id có tồn tại hay không
         User user = userRepository.findById(orderDTO.getUserId()).orElseThrow(() -> new DataNotFoundException("Cannot find user with id: "+orderDTO.getUserId()));
@@ -42,11 +50,22 @@ public class OrderServiceImp implements OrderService {
         }
         order.setShippingDate(shippingDate);
         order.setActive(true);
+        order.setTotalMoney(order.getTotalMoney());
         orderRepository.save(order);
-        modelMapper.typeMap(Order.class, OrderResponse.class);
-        OrderResponse orderResponse = new OrderResponse();
-        modelMapper.map(order, orderResponse);
-        return orderResponse;
+        List<OrderDetail> orderDetails = new ArrayList<>();
+        for (CartItemDTO cartItemDTO : orderDTO.getCartItems()) {
+            OrderDetail orderDetail = new OrderDetail();
+            orderDetail.setOrder(order);
+            Long productId = cartItemDTO.getProductId();
+            int quantity = cartItemDTO.getQuantity();
+            Product product = productRepository.findById(productId).orElseThrow(() -> new DataNotFoundException("Product not found"));
+            orderDetail.setProduct(product);
+            orderDetail.setNumberOfProducts(quantity);
+            orderDetail.setPrice(product.getPrice());
+            orderDetails.add(orderDetail);
+        }
+        orderDetailRepository.saveAll(orderDetails);
+        return modelMapper.map(order, OrderResponse.class);
     }
 
     @Override
@@ -56,6 +75,7 @@ public class OrderServiceImp implements OrderService {
     }
 
     @Override
+    @Transactional
     public OrderResponse updateOrder(Long id, OrderDTO orderDTO) {
         Order order = orderRepository.findById(id).orElseThrow(() -> new DataNotFoundException("Not found order"));
         User user = userRepository.findById(orderDTO.getUserId()).orElseThrow(() -> new DataNotFoundException("Not found user"));
@@ -77,8 +97,13 @@ public class OrderServiceImp implements OrderService {
     }
 
     @Override
-    public List<OrderResponse> getAllOrders(Long userId) {
-        List<Order> orders = orderRepository.findByUserId(userId);
-        return orders.stream().map(order -> modelMapper.map(order, OrderResponse.class)).toList();
+    public List<Order> findByUserId(Long userId) {
+        return orderRepository.findByUserId(userId);
     }
+
+    @Override
+    public Page<Order> getOrdersByKeyword(String keyword, Pageable pageable) {
+        return orderRepository.findByKeyword(keyword, pageable);
+    }
+
 }

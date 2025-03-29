@@ -1,5 +1,6 @@
 package com.fpt.shopapp.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fpt.shopapp.components.LocalizationUtils;
 import com.fpt.shopapp.dto.ProductDTO;
 import com.fpt.shopapp.dto.ProductImageDTO;
@@ -7,11 +8,14 @@ import com.fpt.shopapp.model.Product;
 import com.fpt.shopapp.model.ProductImage;
 import com.fpt.shopapp.responses.ProductListResponse;
 import com.fpt.shopapp.responses.ProductResponse;
+import com.fpt.shopapp.services.ProductRedisService;
 import com.fpt.shopapp.services.ProductService;
 import com.fpt.shopapp.utils.MessageKeys;
 import com.github.javafaker.Faker;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
@@ -31,6 +35,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -39,8 +44,10 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ProductController {
 
+    private static final Logger logger = LoggerFactory.getLogger(ProductController.class);
     private final ProductService productService;
     private final LocalizationUtils localizationUtils;
+    private final ProductRedisService productRedisService;
 
     @PostMapping("")
     public ResponseEntity<?> createProduct(
@@ -110,7 +117,9 @@ public class ProductController {
             if (resource.exists()) {
                 return ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG).body(resource);
             } else {
-                return ResponseEntity.notFound().build();
+                return ResponseEntity.ok()
+                        .contentType(MediaType.IMAGE_JPEG)
+                        .body(new UrlResource(Paths.get("uploads/notfound.png").toUri()));
             }
         } catch (Exception e) {
             return ResponseEntity.notFound().build();
@@ -144,25 +153,52 @@ public class ProductController {
 
     @GetMapping("")
     public ResponseEntity<?> getProducts(
-            @RequestParam("page") int page,
-            @RequestParam("limit") int limit
-    ) {
-        PageRequest pageRequest = PageRequest.of(page-1, limit, Sort.by("id").ascending());
-        Page<ProductResponse> products = productService.getAllProducts(pageRequest);
-        int totalPages = products.getTotalPages();
-        List<ProductResponse> productList = products.getContent();
+            @RequestParam(defaultValue = "") String keyword,
+            @RequestParam(defaultValue = "0", name = "category_id") Long categoryId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int limit
+    ) throws JsonProcessingException {
+        int totalPages = 0;
+        PageRequest pageRequest = PageRequest.of(page, limit, Sort.by("id").ascending());
+        logger.info(String.format("keyword = %s, category_id = %d, page = %d, limit = %d", keyword, categoryId, page, limit));
+        List<ProductResponse> productResponses = productRedisService.getAllProducts(keyword, categoryId, pageRequest);
+        if (productResponses == null) {
+            Page<ProductResponse> products = productService.getAllProducts(keyword, categoryId, pageRequest);
+            totalPages = products.getTotalPages();
+            productResponses = products.getContent();
+            productRedisService.saveAllProduct(productResponses, keyword, categoryId, pageRequest);
+        }
+
         return ResponseEntity.ok(ProductListResponse.builder()
-                        .products(productList)
+                        .products(productResponses)
                         .totalPages(totalPages)
                 .build());
+    }
+
+    @GetMapping("/by-ids")
+    public ResponseEntity<?> getProductByIds(@RequestParam("ids") String ids) {
+        try {
+            List<Long> productIds = Arrays.stream(ids.split(","))
+                    .map(Long::parseLong)
+                    .toList();
+            List<Product> products = productService.findProductsByIds(productIds);
+            return ResponseEntity.ok(products);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<?> getProductById(
             @PathVariable("id") Long productId
     ) {
-        Product product =  productService.getProductById(productId);
-        return ResponseEntity.ok(ProductResponse.fromProduct(product));
+        try {
+            Product product =  productService.getProductById(productId);
+            return ResponseEntity.ok(ProductResponse.fromProduct(product));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+
     }
 
     @PutMapping("/{id}")

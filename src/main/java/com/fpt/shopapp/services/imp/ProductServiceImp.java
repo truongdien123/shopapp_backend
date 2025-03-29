@@ -17,6 +17,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -42,12 +43,17 @@ public class ProductServiceImp implements ProductService {
 
     @Override
     public Product getProductById(Long id) {
-        return productRepository.findById(id).orElseThrow(() -> new DataNotFoundException("Cannot find product with id: "+id));
+        Optional<Product> optionalProduct = productRepository.getDetailProduct(id);
+        if (optionalProduct.isPresent()) {
+            return optionalProduct.get();
+        }
+        throw new DataNotFoundException("Cannot find product");
     }
 
     @Override
-    public Page<ProductResponse> getAllProducts(PageRequest pageRequest) {
-        return productRepository.findAll(pageRequest).map(ProductResponse::fromProduct);
+    public Page<ProductResponse> getAllProducts(String keyword, Long categoryId, PageRequest pageRequest) {
+        Page<Product> productsPage = productRepository.searchProducts(categoryId, keyword, pageRequest);
+        return productsPage.map(ProductResponse::fromProduct);
     }
 
     @Override
@@ -88,5 +94,10 @@ public class ProductServiceImp implements ProductService {
             throw new InvalidParamException("Number of images must be <= 5");
         }
         return productImageRepository.save(productImage);
+    }
+
+    @Override
+    public List<Product> findProductsByIds(List<Long> productId) {
+        return productRepository.findProductsByIds(productId);
     }
 }

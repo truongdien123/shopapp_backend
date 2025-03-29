@@ -24,20 +24,24 @@ public class OrderDetailController {
     // Thêm mới 1 order detail
     @PostMapping
     public ResponseEntity<?> createOrderDetail(@Valid @RequestBody OrderDetailDTO orderDetailDTO){
-        OrderDetail orderDetail = orderDetailService.createOrderDetail(orderDetailDTO);
-        return ResponseEntity.ok(OrderDetailResponse.fromOrderDetail(orderDetail));
+        try {
+            OrderDetail orderDetail = orderDetailService.createOrderDetail(orderDetailDTO);
+            return ResponseEntity.ok(OrderDetailResponse.fromOrderDetail(orderDetail));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<?> getOrderDetail(@Valid @PathVariable("id") Long id){
         OrderDetail orderDetail = orderDetailService.getOrderDetail(id);
-        return ResponseEntity.ok(orderDetail);
+        return ResponseEntity.ok().body(OrderDetailResponse.fromOrderDetail(orderDetail));
     }
 
     // Lấy ra danh sách các order_details của 1 order nào đó
     @GetMapping("/order/{orderId}")
     public ResponseEntity<?> getOrderDetails(@Valid @PathVariable("orderId") Long orderId){
-        List<OrderDetail> orderDetails = orderDetailService.getAllOrderDetail(orderId);
+        List<OrderDetail> orderDetails = orderDetailService.findByOrderId(orderId);
         List<OrderDetailResponse> orderDetailResponses = orderDetails.stream().map(OrderDetailResponse::fromOrderDetail).toList();
         return ResponseEntity.ok(orderDetailResponses);
     }
@@ -47,8 +51,13 @@ public class OrderDetailController {
             @Valid @PathVariable("id") Long id,
             @RequestBody OrderDetailDTO orderDetailDTO
     ) {
-        OrderDetail orderDetail = orderDetailService.updateOrderDetail(id, orderDetailDTO);
-        return ResponseEntity.ok(orderDetail);
+        try {
+            OrderDetail orderDetail = orderDetailService.updateOrderDetail(id, orderDetailDTO);
+            return ResponseEntity.ok(orderDetail);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+
     }
 
     @DeleteMapping("/{id}")

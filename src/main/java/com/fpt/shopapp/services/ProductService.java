@@ -8,12 +8,15 @@ import com.fpt.shopapp.responses.ProductResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
+import java.util.List;
+
 public interface ProductService {
     Product createProduct(ProductDTO productDTO);
     Product getProductById(Long id);
-    Page<ProductResponse> getAllProducts(PageRequest pageRequest);
+    Page<ProductResponse> getAllProducts(String keyword, Long categoryId, PageRequest pageRequest);
     Product updateProduct(Long id, ProductDTO productDTO);
     void deleteProduct(Long id);
     boolean existsByName(String name);
     ProductImage createProductImage(Long productId, ProductImageDTO productImageDTO);
+    List<Product> findProductsByIds(List<Long> productId);
 }

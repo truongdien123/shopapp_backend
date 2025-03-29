@@ -9,6 +9,6 @@ public interface OrderDetailService {
     OrderDetail createOrderDetail(OrderDetailDTO orderDetailDTO);
     OrderDetail getOrderDetail(Long id);
     OrderDetail updateOrderDetail(Long id, OrderDetailDTO orderDetailDTO);
-    List<OrderDetail> getAllOrderDetail(Long orderId);
     void deleteOrderDetail(Long id);
+    List<OrderDetail> findByOrderId(Long orderId);
 }

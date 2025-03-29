@@ -57,12 +57,12 @@ public class OrderDetailServiceImp implements OrderDetailService {
     }
 
     @Override
-    public List<OrderDetail> getAllOrderDetail(Long orderId) {
-        return orderDetailRepository.findByOrderId(orderId);
+    public void deleteOrderDetail(Long id) {
+        orderDetailRepository.deleteById(id);
     }
 
     @Override
-    public void deleteOrderDetail(Long id) {
-        orderDetailRepository.deleteById(id);
+    public List<OrderDetail> findByOrderId(Long orderId) {
+        return orderDetailRepository.findByOrderId(orderId);
     }
 }
